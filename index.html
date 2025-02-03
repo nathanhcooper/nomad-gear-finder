@@ -2,18 +2,40 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <!-- This meta tag ensures proper scaling on mobile devices -->
+  <!-- Ensure proper scaling on mobile devices -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSV Product Search - Grouped by Set (Mobile Friendly)</title>
+  <title>Nomad Gear Finder</title>
+  <!-- Google Font: Montserrat -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    /* Base styling for the page */
+    /* Base styling using Montserrat */
     body {
-      font-family: sans-serif;
-      margin: 20px;
-      line-height: 1.5;
+      font-family: 'Montserrat', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f8f8f8;
+      color: #333;
+      line-height: 1.6;
     }
-    h1, h2 {
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #fff;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 20px;
+      color: #222;
+    }
+    h2 {
+      font-size: 1.5rem;
+      margin-top: 30px;
       margin-bottom: 10px;
+      border-bottom: 2px solid #007BFF;
+      padding-bottom: 5px;
+      color: #007BFF;
     }
     /* Controls styling */
     .controls {
@@ -21,75 +43,82 @@
     }
     label {
       display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
+      margin-bottom: 8px;
+      font-weight: 500;
     }
     input[type="file"],
-    input[type="text"],
-    button {
-      font-size: 1rem;
-      padding: 10px;
-      margin: 5px 0;
+    input[type="text"] {
       width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
       box-sizing: border-box;
     }
     button {
+      width: 100%;
+      padding: 12px;
+      border: none;
       background-color: #007BFF;
       color: #fff;
-      border: none;
+      font-size: 1rem;
+      border-radius: 4px;
       cursor: pointer;
+      transition: background-color 0.3s ease;
     }
     button:hover {
       background-color: #0056b3;
     }
-    /* Responsive table styling */
+    /* Table styling */
     table {
-      border-collapse: collapse;
       width: 100%;
+      border-collapse: collapse;
       margin-bottom: 20px;
-      overflow-x: auto;
-      display: block;
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 8px 12px;
+      padding: 12px;
       text-align: left;
+      border-bottom: 1px solid #ddd;
       word-break: break-word;
     }
     th {
-      background: #f4f4f4;
+      background: #f1f1f1;
+      font-weight: 500;
     }
-    /* Adjustments for very small screens */
+    /* Responsive adjustments for small screens */
     @media (max-width: 480px) {
-      body {
-        margin: 10px;
-        font-size: 0.9rem;
+      h1 {
+        font-size: 1.5rem;
       }
       input[type="file"],
       input[type="text"],
       button {
-        padding: 8px;
+        padding: 10px;
+        font-size: 0.9rem;
       }
       th, td {
-        padding: 6px 8px;
+        padding: 10px;
       }
     }
   </style>
 </head>
 <body>
-  <h1>CSV Product Search - Grouped by Set</h1>
-  
-  <div class="controls">
-    <!-- File upload control -->
-    <input type="file" id="csvFileInput" accept=".csv" multiple>
-    <!-- Search input -->
-    <label for="productSearch">Search Product:</label>
-    <input type="text" id="productSearch" placeholder="Enter product name">
-    <button id="searchBtn">Search</button>
+  <div class="container">
+    <h1>Nomad Gear Finder</h1>
+    
+    <div class="controls">
+      <!-- File upload control -->
+      <input type="file" id="csvFileInput" accept=".csv" multiple>
+      <!-- Search input -->
+      <label for="productSearch">Search Product:</label>
+      <input type="text" id="productSearch" placeholder="Enter product name">
+      <button id="searchBtn">Search</button>
+    </div>
+    
+    <!-- Container where grouped results will be displayed -->
+    <div id="resultContainer"></div>
   </div>
-  
-  <!-- Container where grouped results will be displayed -->
-  <div id="resultContainer"></div>
   
   <script>
     // Object to store uploaded CSV file data (key: file name, value: CSV text)
@@ -108,7 +137,6 @@
     function parseCSV(data) {
       const lines = data.split('\n').filter(line => line.trim() !== '');
       if (lines.length === 0) return [];
-      // Convert header names to lowercase.
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       const rows = [];
       for (let i = 1; i < lines.length; i++) {
@@ -123,9 +151,10 @@
     }
 
     /**
-     * Updates the display by grouping CSV rows by the "set" field.
-     * Each set is rendered with a header and a table listing products,
-     * the unique case locations, and total quantities.
+     * Updates the results display.
+     * Groups CSV rows by the "set" field and then by product,
+     * then creates a header for each set and a table listing products,
+     * unique case locations, and total quantities.
      */
     function updateTable() {
       const searchValue = document.getElementById('productSearch').value.trim();
@@ -164,14 +193,14 @@
       const container = document.getElementById('resultContainer');
       container.innerHTML = '';
       
-      // For each set, create a header and a table.
+      // For each set group, create a header and a table.
       for (const setName in groupedBySet) {
-        // Set header
+        // Create a header element for the set.
         const header = document.createElement('h2');
         header.textContent = setName;
         container.appendChild(header);
         
-        // Create table for this set.
+        // Create a table for the products in this set.
         const table = document.createElement('table');
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
@@ -183,7 +212,7 @@
         thead.appendChild(headerRow);
         table.appendChild(thead);
         
-        // Build table body.
+        // Create the table body with product rows.
         const tbody = document.createElement('tbody');
         const products = groupedBySet[setName];
         for (const product in products) {
@@ -210,7 +239,7 @@
         container.appendChild(table);
       }
     }
-    
+
     // Handle CSV file uploads.
     document.getElementById('csvFileInput').addEventListener('change', function(event) {
       const files = event.target.files;
@@ -219,7 +248,7 @@
         const reader = new FileReader();
         reader.onload = function(e) {
           const fileData = e.target.result;
-          // Save the file data with its filename as the key.
+          // Save the file data using its filename as key.
           uploadedFiles[file.name] = fileData;
           // Optionally, automatically use the last uploaded file.
           currentCSVData = fileData;
@@ -228,7 +257,7 @@
         reader.readAsText(file);
       });
     });
-    
+
     // Attach event listeners for search functionality.
     document.getElementById('searchBtn').addEventListener('click', updateTable);
     document.getElementById('productSearch').addEventListener('keydown', function(e) {
