@@ -2,84 +2,113 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>CSV Product Search - Multiple Files (Fixed Search)</title>
+  <!-- This meta tag ensures proper scaling on mobile devices -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV Product Search - Grouped by Set (Mobile Friendly)</title>
   <style>
+    /* Base styling for the page */
     body {
       font-family: sans-serif;
       margin: 20px;
+      line-height: 1.5;
     }
+    h1, h2 {
+      margin-bottom: 10px;
+    }
+    /* Controls styling */
+    .controls {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input[type="file"],
+    input[type="text"],
+    button {
+      font-size: 1rem;
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    /* Responsive table styling */
     table {
       border-collapse: collapse;
-      width: 80%;
-      margin-top: 20px;
+      width: 100%;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      display: block;
     }
     th, td {
       border: 1px solid #ccc;
       padding: 8px 12px;
       text-align: left;
+      word-break: break-word;
     }
     th {
       background: #f4f4f4;
     }
-    input, button, select {
-      font-size: 1rem;
-      padding: 6px 8px;
-      margin-right: 5px;
+    /* Adjustments for very small screens */
+    @media (max-width: 480px) {
+      body {
+        margin: 10px;
+        font-size: 0.9rem;
+      }
+      input[type="file"],
+      input[type="text"],
+      button {
+        padding: 8px;
+      }
+      th, td {
+        padding: 6px 8px;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>CSV Product Search - Multiple Files (Fixed Search)</h1>
-
-  <!-- File Upload -->
-  <label for="csvFileInput">Upload CSV File(s):</label>
-  <input type="file" id="csvFileInput" accept=".csv" multiple>
-  <br><br>
-
-  <!-- Dropdown for switching between uploaded files -->
-  <label for="fileSelect">Select CSV File:</label>
-  <select id="fileSelect">
-    <option value="">-- Select a file --</option>
-  </select>
-  <br><br>
-
-  <!-- Search input -->
-  <label for="productSearch">Search Product:</label>
-  <input type="text" id="productSearch" placeholder="Enter product name">
-  <button id="searchBtn">Search</button>
-
-  <!-- Results Table -->
-  <table id="resultTable">
-    <thead>
-      <tr>
-        <th>Product</th>
-        <th>Cases</th>
-        <th>Total Quantity</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Results will be inserted here -->
-    </tbody>
-  </table>
-
+  <h1>CSV Product Search - Grouped by Set</h1>
+  
+  <div class="controls">
+    <!-- File upload control -->
+    <input type="file" id="csvFileInput" accept=".csv" multiple>
+    <!-- Search input -->
+    <label for="productSearch">Search Product:</label>
+    <input type="text" id="productSearch" placeholder="Enter product name">
+    <button id="searchBtn">Search</button>
+  </div>
+  
+  <!-- Container where grouped results will be displayed -->
+  <div id="resultContainer"></div>
+  
   <script>
-    // Object to hold uploaded files (key: file name, value: CSV content)
+    // Object to store uploaded CSV file data (key: file name, value: CSV text)
     const uploadedFiles = {};
-    // This will hold the currently selected CSV content.
+    // This variable will hold the CSV data currently in use.
     let currentCSVData = '';
 
     /**
-     * Parses the CSV text into an array of objects.
-     * It converts header names to lowercase to ensure consistency.
-     * Assumes fields do not include commas.
+     * Simple CSV parser.
+     * Converts CSV text into an array of objects.
+     * Converts header names to lowercase for consistency.
      *
-     * @param {string} data - The CSV string.
+     * @param {string} data - The CSV text.
      * @returns {Array<Object>} Parsed rows as objects.
      */
     function parseCSV(data) {
       const lines = data.split('\n').filter(line => line.trim() !== '');
       if (lines.length === 0) return [];
-      // Convert headers to lowercase for consistency.
+      // Convert header names to lowercase.
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       const rows = [];
       for (let i = 1; i < lines.length; i++) {
@@ -94,9 +123,9 @@
     }
 
     /**
-     * Updates the results table using the currently selected CSV data and the product search query.
-     * It filters the rows based on a case-insensitive partial match for the product name,
-     * groups the data by product, sums the quantities, and collects unique case locations.
+     * Updates the display by grouping CSV rows by the "set" field.
+     * Each set is rendered with a header and a table listing products,
+     * the unique case locations, and total quantities.
      */
     function updateTable() {
       const searchValue = document.getElementById('productSearch').value.trim();
@@ -104,95 +133,103 @@
         alert('Please upload and select a CSV file first.');
         return;
       }
-
       const data = parseCSV(currentCSVData);
 
-      // Filter rows by product name (partial, case-insensitive match)
+      // Filter rows by product name if a search term is provided.
       const filteredData = searchValue
-        ? data.filter(row => {
-            const productVal = row['product'] || "";
-            return productVal.toLowerCase().includes(searchValue.toLowerCase());
-          })
+        ? data.filter(row => (row['product'] || "").toLowerCase().includes(searchValue.toLowerCase()))
         : data;
-
-      // Group data by product, summing quantities and collecting unique cases.
-      const grouped = {};
+      
+      // Group rows by set and then by product.
+      const groupedBySet = {};
       filteredData.forEach(row => {
-        const product = row['product'];
-        if (!product) return;
+        const setName = row['set'] || "No Set";
+        const product = row['product'] || "Unknown Product";
         const quantity = parseInt(row['quantity'], 10) || 0;
         const caseLocation = row['case'] || "";
-        if (!grouped[product]) {
-          grouped[product] = { totalQuantity: 0, cases: new Set() };
+        
+        if (!groupedBySet[setName]) {
+          groupedBySet[setName] = {};
         }
-        grouped[product].totalQuantity += quantity;
+        if (!groupedBySet[setName][product]) {
+          groupedBySet[setName][product] = { totalQuantity: 0, cases: new Set() };
+        }
+        groupedBySet[setName][product].totalQuantity += quantity;
         if (caseLocation) {
-          grouped[product].cases.add(caseLocation);
+          groupedBySet[setName][product].cases.add(caseLocation);
         }
       });
-
-      // Clear any existing rows.
-      const tbody = document.getElementById('resultTable').querySelector('tbody');
-      tbody.innerHTML = '';
-
-      // Populate the table with the grouped results.
-      for (const product in grouped) {
-        const row = document.createElement('tr');
-
-        const productCell = document.createElement('td');
-        productCell.textContent = product;
-        row.appendChild(productCell);
-
-        const casesCell = document.createElement('td');
-        casesCell.textContent = Array.from(grouped[product].cases).join(', ');
-        row.appendChild(casesCell);
-
-        const quantityCell = document.createElement('td');
-        quantityCell.textContent = grouped[product].totalQuantity;
-        row.appendChild(quantityCell);
-
-        tbody.appendChild(row);
+      
+      // Clear existing results.
+      const container = document.getElementById('resultContainer');
+      container.innerHTML = '';
+      
+      // For each set, create a header and a table.
+      for (const setName in groupedBySet) {
+        // Set header
+        const header = document.createElement('h2');
+        header.textContent = setName;
+        container.appendChild(header);
+        
+        // Create table for this set.
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Product', 'Cases', 'Total Quantity'].forEach(text => {
+          const th = document.createElement('th');
+          th.textContent = text;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Build table body.
+        const tbody = document.createElement('tbody');
+        const products = groupedBySet[setName];
+        for (const product in products) {
+          const row = document.createElement('tr');
+          
+          // Product cell.
+          const productCell = document.createElement('td');
+          productCell.textContent = product;
+          row.appendChild(productCell);
+          
+          // Cases cell.
+          const casesCell = document.createElement('td');
+          casesCell.textContent = Array.from(products[product].cases).join(', ');
+          row.appendChild(casesCell);
+          
+          // Total quantity cell.
+          const quantityCell = document.createElement('td');
+          quantityCell.textContent = products[product].totalQuantity;
+          row.appendChild(quantityCell);
+          
+          tbody.appendChild(row);
+        }
+        table.appendChild(tbody);
+        container.appendChild(table);
       }
     }
-
-    // Listen for CSV file uploads.
+    
+    // Handle CSV file uploads.
     document.getElementById('csvFileInput').addEventListener('change', function(event) {
       const files = event.target.files;
       if (!files.length) return;
-      const fileSelect = document.getElementById('fileSelect');
       Array.from(files).forEach(file => {
         const reader = new FileReader();
         reader.onload = function(e) {
           const fileData = e.target.result;
-          // Store the file content.
+          // Save the file data with its filename as the key.
           uploadedFiles[file.name] = fileData;
-          // If this file isn't already in the dropdown, add it.
-          const optionExists = Array.from(fileSelect.options).some(option => option.value === file.name);
-          if (!optionExists) {
-            const option = document.createElement('option');
-            option.value = file.name;
-            option.textContent = file.name;
-            fileSelect.appendChild(option);
-          }
-          // Automatically select the last uploaded file.
+          // Optionally, automatically use the last uploaded file.
           currentCSVData = fileData;
-          fileSelect.value = file.name;
           updateTable();
         };
         reader.readAsText(file);
       });
     });
-
-    // Listen for changes in the file selection dropdown.
-    document.getElementById('fileSelect').addEventListener('change', function(event) {
-      const selectedFileName = event.target.value;
-      if (selectedFileName && uploadedFiles[selectedFileName]) {
-        currentCSVData = uploadedFiles[selectedFileName];
-        updateTable();
-      }
-    });
-
-    // Set up search button and Enter key event.
+    
+    // Attach event listeners for search functionality.
     document.getElementById('searchBtn').addEventListener('click', updateTable);
     document.getElementById('productSearch').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
