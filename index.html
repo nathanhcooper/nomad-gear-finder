@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>CSV Product Search - Multiple Files (Fixed Search)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 80%;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th {
+      background: #f4f4f4;
+    }
+    input, button, select {
+      font-size: 1rem;
+      padding: 6px 8px;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>CSV Product Search - Multiple Files (Fixed Search)</h1>
+
+  <!-- File Upload -->
+  <label for="csvFileInput">Upload CSV File(s):</label>
+  <input type="file" id="csvFileInput" accept=".csv" multiple>
+  <br><br>
+
+  <!-- Dropdown for switching between uploaded files -->
+  <label for="fileSelect">Select CSV File:</label>
+  <select id="fileSelect">
+    <option value="">-- Select a file --</option>
+  </select>
+  <br><br>
+
+  <!-- Search input -->
+  <label for="productSearch">Search Product:</label>
+  <input type="text" id="productSearch" placeholder="Enter product name">
+  <button id="searchBtn">Search</button>
+
+  <!-- Results Table -->
+  <table id="resultTable">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Cases</th>
+        <th>Total Quantity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Results will be inserted here -->
+    </tbody>
+  </table>
+
+  <script>
+    // Object to hold uploaded files (key: file name, value: CSV content)
+    const uploadedFiles = {};
+    // This will hold the currently selected CSV content.
+    let currentCSVData = '';
+
+    /**
+     * Parses the CSV text into an array of objects.
+     * It converts header names to lowercase to ensure consistency.
+     * Assumes fields do not include commas.
+     *
+     * @param {string} data - The CSV string.
+     * @returns {Array<Object>} Parsed rows as objects.
+     */
+    function parseCSV(data) {
+      const lines = data.split('\n').filter(line => line.trim() !== '');
+      if (lines.length === 0) return [];
+      // Convert headers to lowercase for consistency.
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index];
+        });
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    /**
+     * Updates the results table using the currently selected CSV data and the product search query.
+     * It filters the rows based on a case-insensitive partial match for the product name,
+     * groups the data by product, sums the quantities, and collects unique case locations.
+     */
+    function updateTable() {
+      const searchValue = document.getElementById('productSearch').value.trim();
+      if (!currentCSVData) {
+        alert('Please upload and select a CSV file first.');
+        return;
+      }
+
+      const data = parseCSV(currentCSVData);
+
+      // Filter rows by product name (partial, case-insensitive match)
+      const filteredData = searchValue
+        ? data.filter(row => {
+            const productVal = row['product'] || "";
+            return productVal.toLowerCase().includes(searchValue.toLowerCase());
+          })
+        : data;
+
+      // Group data by product, summing quantities and collecting unique cases.
+      const grouped = {};
+      filteredData.forEach(row => {
+        const product = row['product'];
+        if (!product) return;
+        const quantity = parseInt(row['quantity'], 10) || 0;
+        const caseLocation = row['case'] || "";
+        if (!grouped[product]) {
+          grouped[product] = { totalQuantity: 0, cases: new Set() };
+        }
+        grouped[product].totalQuantity += quantity;
+        if (caseLocation) {
+          grouped[product].cases.add(caseLocation);
+        }
+      });
+
+      // Clear any existing rows.
+      const tbody = document.getElementById('resultTable').querySelector('tbody');
+      tbody.innerHTML = '';
+
+      // Populate the table with the grouped results.
+      for (const product in grouped) {
+        const row = document.createElement('tr');
+
+        const productCell = document.createElement('td');
+        productCell.textContent = product;
+        row.appendChild(productCell);
+
+        const casesCell = document.createElement('td');
+        casesCell.textContent = Array.from(grouped[product].cases).join(', ');
+        row.appendChild(casesCell);
+
+        const quantityCell = document.createElement('td');
+        quantityCell.textContent = grouped[product].totalQuantity;
+        row.appendChild(quantityCell);
+
+        tbody.appendChild(row);
+      }
+    }
+
+    // Listen for CSV file uploads.
+    document.getElementById('csvFileInput').addEventListener('change', function(event) {
+      const files = event.target.files;
+      if (!files.length) return;
+      const fileSelect = document.getElementById('fileSelect');
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const fileData = e.target.result;
+          // Store the file content.
+          uploadedFiles[file.name] = fileData;
+          // If this file isn't already in the dropdown, add it.
+          const optionExists = Array.from(fileSelect.options).some(option => option.value === file.name);
+          if (!optionExists) {
+            const option = document.createElement('option');
+            option.value = file.name;
+            option.textContent = file.name;
+            fileSelect.appendChild(option);
+          }
+          // Automatically select the last uploaded file.
+          currentCSVData = fileData;
+          fileSelect.value = file.name;
+          updateTable();
+        };
+        reader.readAsText(file);
+      });
+    });
+
+    // Listen for changes in the file selection dropdown.
+    document.getElementById('fileSelect').addEventListener('change', function(event) {
+      const selectedFileName = event.target.value;
+      if (selectedFileName && uploadedFiles[selectedFileName]) {
+        currentCSVData = uploadedFiles[selectedFileName];
+        updateTable();
+      }
+    });
+
+    // Set up search button and Enter key event.
+    document.getElementById('searchBtn').addEventListener('click', updateTable);
+    document.getElementById('productSearch').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        updateTable();
+      }
+    });
+  </script>
+</body>
+</html>
